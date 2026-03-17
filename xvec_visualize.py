@@ -4,8 +4,9 @@
 """xvec_visualize.py
 
 - 元音声n本 + 仮名化後n本 から x-vector を抽出
+- 必要に応じて pool_xvecs.npz の pool 群も読み込む
 - PCA または UMAP で2次元に次元削減
-- 特徴量空間を可視化（元=○, 仮名化=☆, 話者ごとに色分け）
+- 特徴量空間を可視化（元=○, 仮名化=☆, pool=薄いグレー）
 """
 
 from __future__ import annotations
@@ -37,6 +38,17 @@ def _latest_wavs_in_speaker_dirs(outputs_dir: str = "outputs_seedvc") -> List[st
 
 def _list_wavs_in_dir(inputs_dir: str) -> List[str]:
     return sorted(glob.glob(os.path.join(inputs_dir, "*.wav")))
+
+
+def _load_pool_xvecs(pool_npz: str) -> np.ndarray:
+    data = np.load(pool_npz, allow_pickle=True)
+    if "xvecs" not in data:
+        raise KeyError(f"'xvecs' is not found in {pool_npz}")
+
+    pool_xvecs = data["xvecs"].astype(np.float32)
+    if pool_xvecs.ndim != 2:
+        raise ValueError(f"pool_xvecs must be 2D, got {pool_xvecs.shape}")
+    return pool_xvecs
 
 
 def extract_xvectors_for_pairs(
@@ -104,38 +116,77 @@ def plot_orig_vs_anon(
     out_png: str = "xvec_viz.png",
     title: Optional[str] = None,
     circle_size: int = 100,
-    star_size: int = 200,  
+    star_size: int = 200,
     line_width: float = 1.6,
     line_alpha: float = 0.75,
+    pool_xvecs: Optional[np.ndarray] = None,
+    pool_size: int = 18,
+    pool_alpha: float = 0.35,
+    pool_color: str = "lightgray",
 ) -> str:
     n = orig_xvecs.shape[0]
     if anon_xvecs.shape[0] != n:
         raise ValueError("orig_xvecs and anon_xvecs must have same length")
 
-    X = np.concatenate([orig_xvecs, anon_xvecs], axis=0)
+    parts = []
+    pool_count = 0
+    if pool_xvecs is not None:
+        pool_xvecs = np.asarray(pool_xvecs, dtype=np.float32)
+        if pool_xvecs.ndim != 2:
+            raise ValueError(f"pool_xvecs must be 2D, got {pool_xvecs.shape}")
+        parts.append(pool_xvecs)
+        pool_count = pool_xvecs.shape[0]
+
+    parts.extend([orig_xvecs, anon_xvecs])
+    X = np.concatenate(parts, axis=0)
     Y = reduce_2d(X, method=method, seed=seed)
 
-    Yo = Y[:n]
-    Ya = Y[n:]
+    offset = 0
+    Yp = None
+    if pool_count > 0:
+        Yp = Y[offset:offset + pool_count]
+        offset += pool_count
+
+    Yo = Y[offset:offset + n]
+    offset += n
+    Ya = Y[offset:offset + n]
+
     colors = _speaker_colors(n)
 
     fig, ax = plt.subplots(figsize=(7, 6))
 
+    if Yp is not None:
+        ax.scatter(
+            Yp[:, 0], Yp[:, 1],
+            marker="o",
+            s=pool_size,
+            c=pool_color,
+            alpha=pool_alpha,
+            edgecolors="none",
+            label="pool",
+            zorder=1,
+        )
+
     for i in range(n):
         c = colors[i]
 
-        # 同一話者ペアは必ず同じ色に指定
-        ax.scatter(Yo[i, 0], Yo[i, 1], marker="o", s=circle_size, c=[c], edgecolors="none")
-        ax.scatter(Ya[i, 0], Ya[i, 1], marker="*", s=star_size,   c=[c], edgecolors="none")
-        ax.plot([Yo[i, 0], Ya[i, 0]], [Yo[i, 1], Ya[i, 1]], color=c, linewidth=line_width, alpha=line_alpha)
+        ax.scatter(Yo[i, 0], Yo[i, 1], marker="o", s=circle_size, c=[c], edgecolors="none", zorder=3)
+        ax.scatter(Ya[i, 0], Ya[i, 1], marker="*", s=star_size, c=[c], edgecolors="none", zorder=4)
+        ax.plot(
+            [Yo[i, 0], Ya[i, 0]],
+            [Yo[i, 1], Ya[i, 1]],
+            color=c,
+            linewidth=line_width,
+            alpha=line_alpha,
+            zorder=2,
+        )
 
-        # ラベル（任意）
         ax.text(Yo[i, 0], Yo[i, 1], f"{i}", fontsize=9, alpha=0.9)
         ax.text(Ya[i, 0], Ya[i, 1], f"{i}'", fontsize=9, alpha=0.9)
 
     ax.set_xlabel("dim1")
     ax.set_ylabel("dim2")
-    ax.set_title(title or f"x-vector 2D ({method.upper()})  (orig=o, anon=*)")
+    ax.set_title(title or f"x-vector 2D ({method.upper()})  (pool=gray, orig=o, anon=*)")
     ax.grid(True, alpha=0.2)
     fig.tight_layout()
     fig.savefig(out_png, dpi=180)
@@ -150,6 +201,7 @@ def visualize_from_dirs(
     seed: int = 0,
     out_png: str = "xvec_viz.png",
     device: Optional[str] = None,
+    pool_npz: Optional[str] = None,
 ) -> str:
     orig_wavs = _list_wavs_in_dir(inputs_dir)
     anon_wavs = _latest_wavs_in_speaker_dirs(outputs_dir)
@@ -162,10 +214,14 @@ def visualize_from_dirs(
         raise ValueError(f"count mismatch: inputs={len(orig_wavs)} outputs={len(anon_wavs)}")
 
     ox, axv = extract_xvectors_for_pairs(orig_wavs, anon_wavs, device=device)
+    pool_xvecs = _load_pool_xvecs(pool_npz) if pool_npz else None
+
     return plot_orig_vs_anon(
-        ox, axv,
+        ox,
+        axv,
         method=method,
         seed=seed,
         out_png=out_png,
-        title=f"x-vector: orig(o) vs anon(*) | n={len(orig_wavs)}",
+        title=f"x-vector: pool(gray) / orig(o) / anon(*) | n={len(orig_wavs)}",
+        pool_xvecs=pool_xvecs,
     )
