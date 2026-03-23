@@ -121,8 +121,8 @@ def plot_orig_vs_anon(
     line_alpha: float = 0.75,
     pool_xvecs: Optional[np.ndarray] = None,
     pool_size: int = 18,
-    pool_alpha: float = 0.35,
-    pool_color: str = "lightgray",
+    pool_alpha: float = 0.75,
+    pool_color: str = "gray",
 ) -> str:
     n = orig_xvecs.shape[0]
     if anon_xvecs.shape[0] != n:
@@ -222,6 +222,6 @@ def visualize_from_dirs(
         method=method,
         seed=seed,
         out_png=out_png,
-        title=f"x-vector: pool(gray) / orig(o) / anon(*) | n={len(orig_wavs)}",
+        title=f"x-vector: pool(gray) / orig(o) / pseudo(*) | n={len(orig_wavs)}",
         pool_xvecs=pool_xvecs,
     )
