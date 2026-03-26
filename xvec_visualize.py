@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-"""xvec_visualize.py
+"""
+xvec_visualize.py
 
-- 元音声n本 + 仮名化後n本 から x-vector を抽出
+- 元音声 n 本 + 仮名化後 n 本から x-vector を抽出
 - 必要に応じて pool_xvecs.npz の pool 群も読み込む
-- PCA または UMAP で2次元に次元削減
+- PCA または UMAP で 2 次元に次元削減
 - 特徴量空間を可視化（元=○, 仮名化=☆, pool=薄いグレー）
+
+修正版のポイント:
+- 2次元化の「学習」は orig + anon だけで行う
+- pool は学習済みの 2D mapper に後から transform して重ね描きする
+- これにより、pool を表示しつつも pool が座標系を支配しにくくなる
 """
 
 from __future__ import annotations
@@ -48,6 +54,7 @@ def _load_pool_xvecs(pool_npz: str) -> np.ndarray:
     pool_xvecs = data["xvecs"].astype(np.float32)
     if pool_xvecs.ndim != 2:
         raise ValueError(f"pool_xvecs must be 2D, got {pool_xvecs.shape}")
+
     return pool_xvecs
 
 
@@ -63,6 +70,7 @@ def extract_xvectors_for_pairs(
 
     orig_x = []
     anon_x = []
+
     for ow, aw in zip(orig_wavs, anon_wavs):
         ox = extract_xvector_jtubespeech(ow, xvec_model, dev).numpy()[0]
         ax = extract_xvector_jtubespeech(aw, xvec_model, dev).numpy()[0]
@@ -72,27 +80,43 @@ def extract_xvectors_for_pairs(
     return np.asarray(orig_x, dtype=np.float32), np.asarray(anon_x, dtype=np.float32)
 
 
-def reduce_2d(
-    X: np.ndarray,
+def make_2d_mapper(
+    X_fit: np.ndarray,
     method: str = "pca",
     seed: int = 0,
     umap_n_neighbors: int = 15,
     umap_min_dist: float = 0.1,
-) -> np.ndarray:
-    """X:[N,D] -> Y:[N,2]"""
+):
+    """
+    X_fit: [N, D]
+    2次元写像器を fit して返す。
+    返り値は transform(X) を持つオブジェクト。
+    """
     method = method.lower()
+
+    if X_fit.ndim != 2:
+        raise ValueError(f"X_fit must be 2D, got {X_fit.shape}")
+
     if method == "pca":
         from sklearn.decomposition import PCA
-        return PCA(n_components=2, random_state=seed).fit_transform(X)
+
+        mapper = PCA(n_components=2, random_state=seed)
+        mapper.fit(X_fit)
+        return mapper
+
     elif method == "umap":
         import umap
-        return umap.UMAP(
+
+        mapper = umap.UMAP(
             n_components=2,
             random_state=seed,
             n_neighbors=umap_n_neighbors,
             min_dist=umap_min_dist,
             metric="cosine",
-        ).fit_transform(X)
+        )
+        mapper.fit(X_fit)
+        return mapper
+
     else:
         raise ValueError("method must be 'pca' or 'umap'")
 
@@ -123,41 +147,62 @@ def plot_orig_vs_anon(
     pool_size: int = 18,
     pool_alpha: float = 0.75,
     pool_color: str = "gray",
+    umap_n_neighbors: int = 15,
+    umap_min_dist: float = 0.1,
 ) -> str:
-    n = orig_xvecs.shape[0]
-    if anon_xvecs.shape[0] != n:
-        raise ValueError("orig_xvecs and anon_xvecs must have same length")
+    """
+    orig / anon を基準に2次元写像を学習し、
+    pool は同じ写像に transform して重ねて表示する。
+    """
+    orig_xvecs = np.asarray(orig_xvecs, dtype=np.float32)
+    anon_xvecs = np.asarray(anon_xvecs, dtype=np.float32)
 
-    parts = []
-    pool_count = 0
+    if orig_xvecs.ndim != 2:
+        raise ValueError(f"orig_xvecs must be 2D, got {orig_xvecs.shape}")
+    if anon_xvecs.ndim != 2:
+        raise ValueError(f"anon_xvecs must be 2D, got {anon_xvecs.shape}")
+    if orig_xvecs.shape != anon_xvecs.shape:
+        raise ValueError(
+            f"orig_xvecs and anon_xvecs must have same shape, "
+            f"got {orig_xvecs.shape} vs {anon_xvecs.shape}"
+        )
+
+    n = orig_xvecs.shape[0]
+
+    # 2次元化の基準は orig + anon
+    fit_X = np.concatenate([orig_xvecs, anon_xvecs], axis=0)
+    mapper = make_2d_mapper(
+        fit_X,
+        method=method,
+        seed=seed,
+        umap_n_neighbors=umap_n_neighbors,
+        umap_min_dist=umap_min_dist,
+    )
+
+    Yo = mapper.transform(orig_xvecs)
+    Ya = mapper.transform(anon_xvecs)
+
+    Yp = None
     if pool_xvecs is not None:
         pool_xvecs = np.asarray(pool_xvecs, dtype=np.float32)
         if pool_xvecs.ndim != 2:
             raise ValueError(f"pool_xvecs must be 2D, got {pool_xvecs.shape}")
-        parts.append(pool_xvecs)
-        pool_count = pool_xvecs.shape[0]
-
-    parts.extend([orig_xvecs, anon_xvecs])
-    X = np.concatenate(parts, axis=0)
-    Y = reduce_2d(X, method=method, seed=seed)
-
-    offset = 0
-    Yp = None
-    if pool_count > 0:
-        Yp = Y[offset:offset + pool_count]
-        offset += pool_count
-
-    Yo = Y[offset:offset + n]
-    offset += n
-    Ya = Y[offset:offset + n]
+        if pool_xvecs.shape[1] != orig_xvecs.shape[1]:
+            raise ValueError(
+                f"feature dim mismatch: pool={pool_xvecs.shape[1]} "
+                f"orig={orig_xvecs.shape[1]}"
+            )
+        Yp = mapper.transform(pool_xvecs)
 
     colors = _speaker_colors(n)
 
     fig, ax = plt.subplots(figsize=(7, 6))
 
+    # pool を背景として先に描画
     if Yp is not None:
         ax.scatter(
-            Yp[:, 0], Yp[:, 1],
+            Yp[:, 0],
+            Yp[:, 1],
             marker="o",
             s=pool_size,
             c=pool_color,
@@ -167,11 +212,28 @@ def plot_orig_vs_anon(
             zorder=1,
         )
 
+    # orig / anon の対応を描画
     for i in range(n):
         c = colors[i]
 
-        ax.scatter(Yo[i, 0], Yo[i, 1], marker="o", s=circle_size, c=[c], edgecolors="none", zorder=3)
-        ax.scatter(Ya[i, 0], Ya[i, 1], marker="*", s=star_size, c=[c], edgecolors="none", zorder=4)
+        ax.scatter(
+            Yo[i, 0],
+            Yo[i, 1],
+            marker="o",
+            s=circle_size,
+            c=[c],
+            edgecolors="none",
+            zorder=3,
+        )
+        ax.scatter(
+            Ya[i, 0],
+            Ya[i, 1],
+            marker="*",
+            s=star_size,
+            c=[c],
+            edgecolors="none",
+            zorder=4,
+        )
         ax.plot(
             [Yo[i, 0], Ya[i, 0]],
             [Yo[i, 1], Ya[i, 1]],
@@ -180,14 +242,17 @@ def plot_orig_vs_anon(
             alpha=line_alpha,
             zorder=2,
         )
-
         ax.text(Yo[i, 0], Yo[i, 1], f"{i}", fontsize=9, alpha=0.9)
         ax.text(Ya[i, 0], Ya[i, 1], f"{i}'", fontsize=9, alpha=0.9)
 
     ax.set_xlabel("dim1")
     ax.set_ylabel("dim2")
-    ax.set_title(title or f"x-vector 2D ({method.upper()})  (pool=gray, orig=o, anon=*)")
+    ax.set_title(
+        title
+        or f"x-vector: pool(gray) / orig(o) / pseudo(*) | n={n} | basis=orig+anon"
+    )
     ax.grid(True, alpha=0.2)
+
     fig.tight_layout()
     fig.savefig(out_png, dpi=180)
     plt.close(fig)
@@ -202,6 +267,8 @@ def visualize_from_dirs(
     out_png: str = "xvec_viz.png",
     device: Optional[str] = None,
     pool_npz: Optional[str] = None,
+    umap_n_neighbors: int = 15,
+    umap_min_dist: float = 0.1,
 ) -> str:
     orig_wavs = _list_wavs_in_dir(inputs_dir)
     anon_wavs = _latest_wavs_in_speaker_dirs(outputs_dir)
@@ -224,4 +291,7 @@ def visualize_from_dirs(
         out_png=out_png,
         title=f"x-vector: pool(gray) / orig(o) / pseudo(*) | n={len(orig_wavs)}",
         pool_xvecs=pool_xvecs,
+        umap_n_neighbors=umap_n_neighbors,
+        umap_min_dist=umap_min_dist,
     )
+
