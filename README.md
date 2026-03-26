@@ -7,7 +7,7 @@ Google Colab 上で `.ipynb` を実行するだけで、環境構築から音声
 
 # DEMO
 
-https://github.com/user-attachments/assets/e6a735fc-6b81-466f-a07b-e596cf9b22f4
+https://github.com/user-attachments/assets/1e4f54d1-bcfc-43c3-b9e5-a8c64c5d4cbd
 
 ---
 
