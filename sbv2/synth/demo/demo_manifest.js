@@ -1,5 +1,5 @@
 window.DEMO = {
-  "title": "鍵付きリズム擬名化 — 聴き比べ",
+  "title": "鍵付きリズム仮名化 — 聴き比べ",
   "subtitle": "音色を保ったままリズム（音素の継続長）だけを鍵依存に置換する。従来の音色変換（Fang）と対比すると、変化する軸が直交していることが分かる。",
   "updated": "2026-06",
   "model": "R1 / e10_s83230 (CSJ)",
@@ -20,7 +20,7 @@ window.DEMO = {
     },
     {
       "id": "A3",
-      "label": "提案：リズム擬名化",
+      "label": "提案：リズム仮名化",
       "sub": "ドナー3名・farthest",
       "timbre": "keep",
       "rhythm": "change",
@@ -42,15 +42,6 @@ window.DEMO = {
       "timbre": "change",
       "rhythm": "keep",
       "role": "contrast"
-    },
-    {
-      "id": "C_both",
-      "label": "フル匿名化：音色＋リズム",
-      "sub": "Fang音色変換＋提案リズム置換",
-      "timbre": "change",
-      "rhythm": "change",
-      "role": "contrast",
-      "optional": true
     }
   ],
   "groups": [
@@ -94,11 +85,6 @@ window.DEMO = {
           "utmos": null,
           "donor": "551",
           "optional": true
-        },
-        "C_both": {
-          "wav": "audio/C_both/189__7c905aa10a.wav",
-          "utmos": null,
-          "optional": true
         }
       }
     },
@@ -129,11 +115,6 @@ window.DEMO = {
           "wav": "audio/A3_d1/438__d4c71de2d7.wav",
           "utmos": null,
           "donor": "591",
-          "optional": true
-        },
-        "C_both": {
-          "wav": "audio/C_both/438__d4c71de2d7.wav",
-          "utmos": null,
           "optional": true
         }
       }
@@ -166,11 +147,6 @@ window.DEMO = {
           "utmos": null,
           "donor": "159",
           "optional": true
-        },
-        "C_both": {
-          "wav": "audio/C_both/380__69dbc8a737.wav",
-          "utmos": null,
-          "optional": true
         }
       }
     },
@@ -201,11 +177,6 @@ window.DEMO = {
           "wav": "audio/A3_d1/235__b88bd0f0f4.wav",
           "utmos": null,
           "donor": "256",
-          "optional": true
-        },
-        "C_both": {
-          "wav": "audio/C_both/235__b88bd0f0f4.wav",
-          "utmos": null,
           "optional": true
         }
       }
@@ -238,11 +209,6 @@ window.DEMO = {
           "utmos": null,
           "donor": "885",
           "optional": true
-        },
-        "C_both": {
-          "wav": "audio/C_both/544__566d2bc245.wav",
-          "utmos": null,
-          "optional": true
         }
       }
     },
@@ -273,11 +239,6 @@ window.DEMO = {
           "wav": "audio/A3_d1/598__6f05d75482.wav",
           "utmos": null,
           "donor": "551",
-          "optional": true
-        },
-        "C_both": {
-          "wav": "audio/C_both/598__6f05d75482.wav",
-          "utmos": null,
           "optional": true
         }
       }
