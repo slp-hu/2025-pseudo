@@ -11,6 +11,14 @@ window.DEMO = {
   },
   "conditions": [
     {
+      "id": "real",
+      "label": "元音声（原音）",
+      "sub": "CSJ 収録 16k→44.1k",
+      "timbre": "orig",
+      "rhythm": "orig",
+      "role": "reference"
+    },
+    {
       "id": "A1",
       "label": "無変換",
       "sub": "コピー合成（基準）",
@@ -42,6 +50,15 @@ window.DEMO = {
       "timbre": "change",
       "rhythm": "keep",
       "role": "contrast"
+    },
+    {
+      "id": "C_both",
+      "label": "フル匿名化：音色＋リズム",
+      "sub": "Fang音色変換＋提案リズム置換",
+      "timbre": "change",
+      "rhythm": "change",
+      "role": "contrast",
+      "optional": true
     }
   ],
   "groups": [
@@ -85,6 +102,15 @@ window.DEMO = {
           "utmos": null,
           "donor": "551",
           "optional": true
+        },
+        "real": {
+          "wav": "audio/real/189__7c905aa10a.wav",
+          "utmos": 3.4
+        },
+        "C_both": {
+          "wav": "audio/C_both/189__7c905aa10a.wav",
+          "utmos": null,
+          "optional": true
         }
       }
     },
@@ -115,6 +141,15 @@ window.DEMO = {
           "wav": "audio/A3_d1/438__d4c71de2d7.wav",
           "utmos": null,
           "donor": "591",
+          "optional": true
+        },
+        "real": {
+          "wav": "audio/real/438__d4c71de2d7.wav",
+          "utmos": 3.58
+        },
+        "C_both": {
+          "wav": "audio/C_both/438__d4c71de2d7.wav",
+          "utmos": null,
           "optional": true
         }
       }
@@ -147,6 +182,15 @@ window.DEMO = {
           "utmos": null,
           "donor": "159",
           "optional": true
+        },
+        "real": {
+          "wav": "audio/real/380__69dbc8a737.wav",
+          "utmos": 3.8
+        },
+        "C_both": {
+          "wav": "audio/C_both/380__69dbc8a737.wav",
+          "utmos": null,
+          "optional": true
         }
       }
     },
@@ -177,6 +221,11 @@ window.DEMO = {
           "wav": "audio/A3_d1/235__b88bd0f0f4.wav",
           "utmos": null,
           "donor": "256",
+          "optional": true
+        },
+        "C_both": {
+          "wav": "audio/C_both/235__b88bd0f0f4.wav",
+          "utmos": null,
           "optional": true
         }
       }
@@ -209,6 +258,11 @@ window.DEMO = {
           "utmos": null,
           "donor": "885",
           "optional": true
+        },
+        "C_both": {
+          "wav": "audio/C_both/544__566d2bc245.wav",
+          "utmos": null,
+          "optional": true
         }
       }
     },
@@ -239,6 +293,11 @@ window.DEMO = {
           "wav": "audio/A3_d1/598__6f05d75482.wav",
           "utmos": null,
           "donor": "551",
+          "optional": true
+        },
+        "C_both": {
+          "wav": "audio/C_both/598__6f05d75482.wav",
+          "utmos": null,
           "optional": true
         }
       }
