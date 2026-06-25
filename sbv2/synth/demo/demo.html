@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>鍵付きリズム擬名化 — 聴き比べ</title>
+<style>
+  :root{
+    --bg:#F6F7F9; --panel:#FFFFFF; --ink:#16181D; --muted:#5B6470; --faint:#8A929E;
+    --line:#E4E7EC; --line2:#EEF0F3;
+    --rhythm:#0E7C86; --rhythm-soft:#E1F0F1;
+    --timbre:#C26A1B; --timbre-soft:#F8ECDD;
+    --base:#6B7585;
+    --radius:14px; --maxw:1080px;
+    --sans: -apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Kaku Gothic ProN","Yu Gothic","Noto Sans JP",Meiryo,sans-serif;
+    --mono: ui-monospace,"SF Mono",Menlo,Consolas,"DejaVu Sans Mono",monospace;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+       line-height:1.6;letter-spacing:.01em}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 20px}
+
+  /* ---------- header ---------- */
+  header{padding:46px 0 26px;border-bottom:1px solid var(--line)}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+           color:var(--muted)}
+  h1{font-size:clamp(26px,4vw,40px);line-height:1.15;margin:.35em 0 .25em;font-weight:760;letter-spacing:-.01em}
+  .sub{max-width:60ch;color:var(--muted);font-size:15.5px;margin:0}
+  .meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+  .pill{font-family:var(--mono);font-size:12px;color:var(--muted);background:var(--panel);
+        border:1px solid var(--line);border-radius:999px;padding:4px 11px}
+  .motif{margin-top:22px;display:block;width:100%;height:34px}
+
+  /* ---------- legend ---------- */
+  .legend{display:grid;grid-template-columns:1.3fr 1fr;gap:22px;margin:26px 0 8px;
+          background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px}
+  .legend h2{font-size:13px;letter-spacing:.04em;margin:0 0 10px;color:var(--ink);font-weight:700}
+  .legend p{margin:0 0 6px;font-size:13.5px;color:var(--muted)}
+  .axis-key{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+  .guide ol{margin:6px 0 0;padding-left:1.1em;font-size:13.5px;color:var(--muted)}
+  .guide li{margin:3px 0}
+  .guide b{color:var(--ink)}
+
+  /* ---------- axis chips ---------- */
+  .chips{display:flex;gap:7px;flex-wrap:wrap}
+  .chip{font-family:var(--mono);font-size:11px;letter-spacing:.02em;border-radius:7px;
+        padding:3px 8px;border:1px solid var(--line);color:var(--faint);background:var(--panel);
+        white-space:nowrap}
+  .chip .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;
+             border:1.5px solid currentColor;vertical-align:middle}
+  .chip.change{font-weight:600}
+  .chip.rhythm.change{color:var(--rhythm);border-color:var(--rhythm);background:var(--rhythm-soft)}
+  .chip.rhythm.change .dot{background:var(--rhythm);border-color:var(--rhythm)}
+  .chip.timbre.change{color:var(--timbre);border-color:var(--timbre);background:var(--timbre-soft)}
+  .chip.timbre.change .dot{background:var(--timbre);border-color:var(--timbre)}
+
+  /* ---------- groups & rows ---------- */
+  .group{margin-top:34px}
+  .group-head{display:flex;align-items:baseline;gap:12px;margin-bottom:4px}
+  .group-head h2{font-size:19px;margin:0;font-weight:720}
+  .group-head .n{font-family:var(--mono);font-size:12px;color:var(--faint)}
+  .group-note{color:var(--muted);font-size:13.5px;margin:0 0 14px}
+
+  .row{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+       padding:16px 18px 18px;margin-bottom:16px}
+  .row-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;
+            flex-wrap:wrap;margin-bottom:12px}
+  .utt{font-size:15px}
+  .utt .lbl{font-family:var(--mono);font-size:11px;color:var(--faint);letter-spacing:.06em;
+            text-transform:uppercase;display:block;margin-bottom:2px}
+  .spkid{font-family:var(--mono);font-size:11px;color:var(--faint)}
+  .seqbtn{font-family:var(--sans);font-size:13px;font-weight:600;color:var(--ink);
+          background:var(--panel);border:1px solid var(--line);border-radius:9px;
+          padding:7px 13px;cursor:pointer;white-space:nowrap;transition:border-color .15s,background .15s}
+  .seqbtn:hover{border-color:var(--rhythm);color:var(--rhythm)}
+  .seqbtn:focus-visible{outline:2px solid var(--rhythm);outline-offset:2px}
+  .seqbtn[aria-pressed="true"]{background:var(--rhythm-soft);border-color:var(--rhythm);color:var(--rhythm)}
+
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(225px,1fr));gap:12px}
+  .card{border:1px solid var(--line);border-left-width:4px;border-radius:11px;padding:12px 13px;
+        background:var(--panel)}
+  .card.base{border-left-color:var(--base)}
+  .card.proposed{border-left-color:var(--rhythm)}
+  .card.contrast{border-left-color:var(--timbre)}
+  .card.playing{box-shadow:0 0 0 2px var(--rhythm-soft);border-color:var(--rhythm)}
+  .card .top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+  .card .name{font-size:14px;font-weight:700;line-height:1.3}
+  .card .name small{display:block;font-weight:500;color:var(--muted);font-size:11.5px;margin-top:1px}
+  .utmos{font-family:var(--mono);font-size:11px;text-align:right;color:var(--muted);white-space:nowrap}
+  .utmos b{display:block;font-size:15px;color:var(--ink);font-weight:700}
+  .card .chips{margin:10px 0 9px}
+  audio{width:100%;height:34px;margin-top:2px}
+  .donor{font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:8px;line-height:1.4}
+  .donor b{color:var(--muted);font-weight:600}
+  .missing{font-size:12px;color:var(--faint);background:var(--line2);border:1px dashed var(--line);
+           border-radius:8px;padding:9px 10px;margin-top:4px;line-height:1.45}
+
+  footer{margin:40px 0 60px;padding-top:18px;border-top:1px solid var(--line);
+         font-size:12.5px;color:var(--faint);font-family:var(--mono)}
+  @media (max-width:620px){.legend{grid-template-columns:1fr}}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow" id="eyebrow">SLP Lab · voice pseudonymization</div>
+    <h1 id="title"></h1>
+    <p class="sub" id="subtitle"></p>
+    <div class="meta" id="meta"></div>
+    <svg class="motif" viewBox="0 0 600 34" preserveAspectRatio="none" aria-hidden="true" id="motif"></svg>
+  </header>
+
+  <section class="legend">
+    <div>
+      <h2>2つの軸（変化した軸が点灯）</h2>
+      <p>各音声がどの軸を変えたかをチップで示す。色は軸を表す。</p>
+      <div class="axis-key">
+        <span class="chip rhythm change"><span class="dot"></span>リズム＝変化</span>
+        <span class="chip timbre change"><span class="dot"></span>音色＝変化</span>
+        <span class="chip"><span class="dot"></span>保持（変えていない）</span>
+      </div>
+      <p style="margin-top:10px">提案（リズム）と従来 Fang（音色）は<b style="color:var(--ink)">変える軸が直交</b>している。</p>
+    </div>
+    <div class="guide">
+      <h2>聴き方</h2>
+      <ol>
+        <li><b>無変換</b> → <b>提案</b>：声（音色）は同じまま、<b>話し方のリズム</b>が変わる。</li>
+        <li><b>提案</b> → <b>Fang</b>：今度は<b>声そのもの</b>が変わり、リズムは元のまま。</li>
+        <li><b>ドナー1名</b>：リズムが特定の他話者に強く寄り、擬似話者性が分かりやすい。</li>
+      </ol>
+    </div>
+  </section>
+
+  <main id="groups"></main>
+
+  <footer id="footer"></footer>
+</div>
+
+<script src="demo_manifest.js"></script>
+<script>
+(function(){
+  var D = window.DEMO;
+  var groupsEl = document.getElementById('groups');
+  if(!D){ groupsEl.innerHTML = '<p class="missing">demo_manifest.js が読み込めませんでした。</p>'; return; }
+
+  // header
+  document.getElementById('title').textContent = D.title || '';
+  document.getElementById('subtitle').textContent = D.subtitle || '';
+  var meta = document.getElementById('meta'); var mbits = [];
+  if(D.model) mbits.push(D.model);
+  var c = D.config||{};
+  if(c.DONOR_MODE) mbits.push('DONOR_MODE='+c.DONOR_MODE);
+  if(c.N_DONORS!=null) mbits.push('N_DONORS='+c.N_DONORS);
+  if(c.A3_CADENCE_WEIGHT!=null) mbits.push('weight='+c.A3_CADENCE_WEIGHT);
+  if(c.KEY_SYS) mbits.push('KEY_SYS='+c.KEY_SYS);
+  if(D.updated) mbits.push(D.updated);
+  meta.innerHTML = mbits.map(function(t){return '<span class="pill">'+esc(t)+'</span>';}).join('');
+
+  // rhythm motif: irregular bars = mora durations
+  var widths=[14,9,20,11,7,16,13,9,22,10,8,15,12,18,9,13,7,20,11,9,16,12,8,14,19,10];
+  var x=0, svg='';
+  widths.forEach(function(w){ svg += '<rect x="'+x+'" y="'+(34-(w*1.1+6))+'" width="'+(w*0.62)+'" height="'+(w*1.1+6)+'" rx="1.5" fill="var(--rhythm)" opacity="'+(0.25+(w/30)*0.5).toFixed(2)+'"></rect>'; x += w*0.62 + 6; });
+  document.getElementById('motif').innerHTML = svg;
+  document.getElementById('motif').setAttribute('viewBox','0 0 '+Math.ceil(x)+' 34');
+
+  // condition lookup in display order
+  var condDefs = D.conditions || [];
+
+  // build groups
+  var allAudios = [];
+  (D.groups||[]).forEach(function(g){
+    var samples = (D.samples||[]).filter(function(s){return s.group===g.id;});
+    if(!samples.length) return;
+    var sec = el('section','group');
+    var gh = el('div','group-head');
+    gh.innerHTML = '<h2>'+esc(g.name)+'</h2><span class="n">'+samples.length+' 発話</span>';
+    sec.appendChild(gh);
+    if(g.note){ var gn=el('p','group-note'); gn.textContent=g.note; sec.appendChild(gn); }
+
+    samples.forEach(function(s){
+      var row = el('div','row');
+      var rh = el('div','row-head');
+      var utt = el('div','utt');
+      utt.innerHTML = '<span class="lbl">発話</span>'+esc(s.text||'(本文なし)')+
+                      ' <span class="spkid">spk '+esc(String(s.spk))+'</span>';
+      rh.appendChild(utt);
+      var seq = el('button','seqbtn'); seq.type='button'; seq.textContent='▶ 順に再生';
+      seq.setAttribute('aria-pressed','false');
+      rh.appendChild(seq);
+      row.appendChild(rh);
+
+      var cards = el('div','cards');
+      var rowAudios = [];
+      condDefs.forEach(function(cd){
+        var clip = (s.clips||{})[cd.id];
+        if(!clip) return;
+        var card = el('div','card '+(cd.role||'base'));
+        // top: name + utmos
+        var top = el('div','top');
+        var nm = el('div','name');
+        nm.innerHTML = esc(cd.label)+(cd.sub?'<small>'+esc(cd.sub)+'</small>':'');
+        top.appendChild(nm);
+        var um = el('div','utmos');
+        um.innerHTML = (clip.utmos!=null)? 'UTMOS<b>'+clip.utmos.toFixed(2)+'</b>' : 'UTMOS<b>—</b>';
+        top.appendChild(um);
+        card.appendChild(top);
+        // chips
+        card.appendChild(chipRow(cd));
+        // audio or missing
+        var a = document.createElement('audio');
+        a.controls=true; a.preload='metadata'; a.src=clip.wav;
+        a.setAttribute('aria-label', cd.label+'：'+(s.text||''));
+        var miss = el('div','missing');
+        miss.textContent = clip.optional ? '音声未配置：07a を N_DONORS=1 で再合成し audio/'+cd.id+'/ に配置すると表示されます。'
+                                         : '音声ファイルが見つかりません（'+clip.wav+'）。';
+        miss.style.display='none';
+        a.addEventListener('error',function(){ a.style.display='none'; miss.style.display='block'; });
+        a.addEventListener('play',function(){
+          allAudios.forEach(function(o){ if(o!==a){o.pause();} });
+          clearPlaying(); card.classList.add('playing');
+        });
+        a.addEventListener('pause',function(){ card.classList.remove('playing'); });
+        a.addEventListener('ended',function(){ card.classList.remove('playing'); });
+        card.appendChild(a); card.appendChild(miss);
+        allAudios.push(a); rowAudios.push(a);
+        // donor info
+        if(cd.id==='A3' && clip.donors && clip.donors.length){
+          var d=el('div','donor'); d.innerHTML='<b>donors</b> '+clip.donors.map(esc).join(' · ')+'（farthest×'+clip.donors.length+'）';
+          card.appendChild(d);
+        }
+        if(cd.id==='A3_d1' && clip.donor){
+          var d2=el('div','donor'); d2.innerHTML='<b>donor</b> '+esc(String(clip.donor))+'（単一・最遠）';
+          card.appendChild(d2);
+        }
+        cards.appendChild(card);
+      });
+      row.appendChild(cards);
+
+      // sequential play
+      seq.addEventListener('click',function(){
+        var playable = rowAudios.filter(function(a){return a.style.display!=='none' && a.readyState>0 || a.style.display!=='none';});
+        // stop everything first
+        allAudios.forEach(function(o){o.pause();});
+        var i=0;
+        seq.setAttribute('aria-pressed','true'); seq.textContent='■ 停止';
+        function stop(){ seq.setAttribute('aria-pressed','false'); seq.textContent='▶ 順に再生';
+                         rowAudios.forEach(function(a){a.onended=null;}); }
+        function next(){
+          while(i<rowAudios.length && rowAudios[i].style.display==='none') i++;
+          if(i>=rowAudios.length){ stop(); return; }
+          var a=rowAudios[i++]; a.onended=next;
+          var p=a.play(); if(p&&p.catch) p.catch(function(){next();});
+        }
+        if(seq.getAttribute('data-on')==='1'){ stop(); seq.setAttribute('data-on','0'); return; }
+        seq.setAttribute('data-on','1');
+        next();
+        // reset toggle state when finished
+        var chk=setInterval(function(){ if(seq.getAttribute('aria-pressed')==='false'){seq.setAttribute('data-on','0');clearInterval(chk);} },400);
+      });
+
+      sec.appendChild(row);
+    });
+    groupsEl.appendChild(sec);
+  });
+
+  // footer
+  var f=document.getElementById('footer');
+  f.textContent = '法政大学 SLP 研究室 — cadence Paper 1 デモ。'+
+    (D.config&&D.config.KEY_SYS? ' 鍵: '+D.config.KEY_SYS+'。':'')+' 同一発話・同一話者で条件のみを変えて比較。';
+
+  // helpers
+  function chipRow(cd){
+    var w=el('div','chips');
+    w.appendChild(mkChip('timbre','音色',cd.timbre));
+    w.appendChild(mkChip('rhythm','リズム',cd.rhythm));
+    return w;
+  }
+  function mkChip(axis,label,state){
+    var c=el('span','chip '+axis+(state==='change'?' change':''));
+    c.innerHTML='<span class="dot"></span>'+label+'＝'+(state==='change'?'変化':'保持');
+    return c;
+  }
+  function clearPlaying(){ document.querySelectorAll('.card.playing').forEach(function(n){n.classList.remove('playing');}); }
+  function el(t,c){var n=document.createElement(t); if(c)n.className=c; return n;}
+  function esc(s){return String(s).replace(/[&<>"]/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m];});}
+})();
+</script>
+</body>
+</html>
